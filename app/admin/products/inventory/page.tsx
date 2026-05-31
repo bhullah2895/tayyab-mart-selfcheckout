@@ -1,6 +1,8 @@
 import { supabase } from '../../../../lib/supabase'
 import InventoryClient from './TempInventoryClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function InventoryPage() {
   const { data: products, error } = await supabase
     .from('products')
