@@ -282,34 +282,6 @@ export default function InventoryClient({ products }: { products: Product[] }) {
                             >
                               Edit / Restock
                             </a>
-
-                            {product.is_active && (
-                              <form
-                                action={removeProductFromInventory}
-                                onSubmit={(event) => {
-                                  const confirmRemove = window.confirm(
-                                    `Remove "${product.name}" from inventory?`
-                                  )
-
-                                  if (!confirmRemove) {
-                                    event.preventDefault()
-                                  }
-                                }}
-                              >
-                                <input
-                                  type="hidden"
-                                  name="productId"
-                                  value={product.id}
-                                />
-
-                                <button
-                                  type="submit"
-                                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
-                                >
-                                  Remove
-                                </button>
-                              </form>
-                            )}
                           </div>
                         </td>
                       </tr>
