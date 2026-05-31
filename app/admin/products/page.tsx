@@ -7,12 +7,14 @@ export default function ProductsPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
               Store Admin
             </p>
+
             <h1 className="mt-1 text-3xl font-bold text-gray-950">
               Product Management
             </h1>
+
             <p className="mt-2 max-w-2xl text-gray-600">
-              Choose what you want to do with your products. You can view
-              inventory, add new items, or go back to the admin dashboard.
+              Manage product inventory, add new products, and return to the
+              admin dashboard.
             </p>
           </div>
 
@@ -38,8 +40,8 @@ export default function ProductsPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              View all products, search items, check stock, edit/restock, and
-              remove discontinued products from inventory.
+              View all products, search by name or barcode, and edit or restock
+              existing products.
             </p>
 
             <div className="mt-6 font-bold text-gray-900 group-hover:underline">
@@ -55,13 +57,11 @@ export default function ProductsPage() {
               +
             </div>
 
-            <h2 className="text-xl font-bold text-gray-950">
-              Add Product
-            </h2>
+            <h2 className="text-xl font-bold text-gray-950">Add Product</h2>
 
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Add a new product with name, price, barcode, stock quantity,
-              category, image, and low stock alert.
+              Add a new product with barcode, price, stock quantity, category,
+              and image.
             </p>
 
             <div className="mt-6 font-bold text-green-700 group-hover:underline">
@@ -77,13 +77,11 @@ export default function ProductsPage() {
               ←
             </div>
 
-            <h2 className="text-xl font-bold text-gray-950">
-              Go Back
-            </h2>
+            <h2 className="text-xl font-bold text-gray-950">Go Back</h2>
 
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Return to the main admin dashboard where you can open sessions,
-              sales, products, and low stock pages.
+              Return to the main admin dashboard for products, sessions, sales,
+              and low stock.
             </p>
 
             <div className="mt-6 font-bold text-gray-900 group-hover:underline">
