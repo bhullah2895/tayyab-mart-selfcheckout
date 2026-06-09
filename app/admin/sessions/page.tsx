@@ -41,7 +41,7 @@ export default function AdminSessionsPage() {
     useState<CheckoutSession | null>(null)
 
   function isExpired(session: Pick<CheckoutSession, 'expires_at'>) {
-    return new Date(session.expires_at) < new Date()
+    return new Date(session.expires_at) <= new Date()
   }
 
   function canBeAbandoned(
@@ -103,7 +103,7 @@ export default function AdminSessionsPage() {
 
     if (statusFilter === 'active') {
       // Active filter should only show sessions that are still inside their allowed time.
-      query = query.eq('status', 'active').gte('expires_at', nowIso)
+      query = query.eq('status', 'active').gt('expires_at', nowIso)
     }
 
     if (statusFilter === 'paid') {
@@ -116,7 +116,7 @@ export default function AdminSessionsPage() {
       query = query
         .in('status', ['active', 'expired'])
         .is('paid_at', null)
-        .lt('expires_at', nowIso)
+        .lte('expires_at', nowIso)
     }
 
     if (statusFilter === 'abandoned') {
@@ -189,7 +189,7 @@ export default function AdminSessionsPage() {
       .eq('id', sessionId)
       .in('status', ['active', 'expired'])
       .is('paid_at', null)
-      .lt('expires_at', nowIso)
+      .lte('expires_at', nowIso)
       .select('id')
 
     if (error) {
@@ -224,7 +224,7 @@ export default function AdminSessionsPage() {
       })
       .in('status', ['active', 'expired'])
       .is('paid_at', null)
-      .lt('expires_at', nowIso)
+      .lte('expires_at', nowIso)
       .select('id')
 
     if (error) {
