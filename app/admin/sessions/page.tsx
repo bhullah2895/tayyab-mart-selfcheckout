@@ -174,7 +174,7 @@ export default function AdminSessionsPage() {
 
   async function markAsAbandoned(sessionId: string) {
     const confirmed = confirm(
-      'Mark this expired unpaid session as abandoned? Paid sessions cannot be abandoned.'
+      ''
     )
 
     if (!confirmed) return
