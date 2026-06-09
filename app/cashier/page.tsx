@@ -207,16 +207,29 @@ export default function CashierPage() {
     setAddingItem(true)
     setMessage('')
 
+    // First try to find active product using case-insensitive search
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('*')
-      .eq('barcode', cleanBarcode)
+      .ilike('barcode', cleanBarcode)
       .eq('is_active', true)
       .single()
 
     if (productError || !product) {
+      // If not found with is_active=true, check if product exists at all
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('*')
+        .ilike('barcode', cleanBarcode)
+        .maybeSingle()
+
       setAddingItem(false)
-      showMessage(`Product not found: ${cleanBarcode}`, 'error')
+
+      if (existingProduct) {
+        showMessage('This product has been deactivated.', 'error')
+      } else {
+        showMessage(`Product not found: ${cleanBarcode}`, 'error')
+      }
       return
     }
 
