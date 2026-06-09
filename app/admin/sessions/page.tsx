@@ -28,17 +28,54 @@ type CheckoutSession = {
   cart_items: CartItem[]
 }
 
+type StatusFilter = 'all' | 'active' | 'paid' | 'expired' | 'abandoned'
+type SessionStats = Pick<CheckoutSession, 'id' | 'status' | 'expires_at' | 'paid_at'>
+
 export default function AdminSessionsPage() {
   const [sessions, setSessions] = useState<CheckoutSession[]>([])
+  const [statsSessions, setStatsSessions] = useState<SessionStats[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedSession, setSelectedSession] =
     useState<CheckoutSession | null>(null)
+
+  function isExpired(session: Pick<CheckoutSession, 'expires_at'>) {
+    return new Date(session.expires_at) < new Date()
+  }
+
+  function canBeAbandoned(
+    session: Pick<CheckoutSession, 'status' | 'expires_at' | 'paid_at'>
+  ) {
+    return (
+      session.status !== 'paid' &&
+      session.paid_at === null &&
+      (session.status === 'active' || session.status === 'expired') &&
+      isExpired(session)
+    )
+  }
+
+  function getDisplayStatus(session: CheckoutSession) {
+    if (session.status === 'paid') return 'PAID'
+    if (session.status === 'abandoned') return 'ABANDONED'
+    if (canBeAbandoned(session)) return 'EXPIRED'
+    return 'ACTIVE'
+  }
+
+  function getStatusBadgeClass(session: CheckoutSession) {
+    const displayStatus = getDisplayStatus(session)
+
+    if (displayStatus === 'ACTIVE') return 'bg-green-100 text-green-800'
+    if (displayStatus === 'PAID') return 'bg-blue-100 text-blue-800'
+    if (displayStatus === 'EXPIRED') return 'bg-orange-100 text-orange-800'
+    return 'bg-red-100 text-red-800'
+  }
 
   async function loadSessions() {
     setLoading(true)
     setMessage('')
+
+    const nowIso = new Date().toISOString()
 
     let query = supabase
       .from('checkout_sessions')
@@ -64,8 +101,26 @@ export default function AdminSessionsPage() {
       `)
       .order('created_at', { ascending: false })
 
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter)
+    if (statusFilter === 'active') {
+      // Active filter should only show sessions that are still inside their allowed time.
+      query = query.eq('status', 'active').gte('expires_at', nowIso)
+    }
+
+    if (statusFilter === 'paid') {
+      query = query.eq('status', 'paid')
+    }
+
+    if (statusFilter === 'expired') {
+      // Expired means unpaid sessions whose allowed checkout time has passed.
+      // This includes active rows that have crossed expires_at and rows already marked expired.
+      query = query
+        .in('status', ['active', 'expired'])
+        .is('paid_at', null)
+        .lt('expires_at', nowIso)
+    }
+
+    if (statusFilter === 'abandoned') {
+      query = query.eq('status', 'abandoned')
     }
 
     const { data, error } = await query
@@ -80,8 +135,25 @@ export default function AdminSessionsPage() {
     setSessions((data as any) || [])
   }
 
+  async function loadSessionStats() {
+    const { data, error } = await supabase
+      .from('checkout_sessions')
+      .select('id, status, expires_at, paid_at')
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setStatsSessions((data as SessionStats[]) || [])
+  }
+
+  async function refreshPage() {
+    await Promise.all([loadSessions(), loadSessionStats()])
+  }
+
   useEffect(() => {
-    loadSessions()
+    refreshPage()
   }, [statusFilter])
 
   function getSessionTotal(session: CheckoutSession) {
@@ -100,62 +172,85 @@ export default function AdminSessionsPage() {
     )
   }
 
-  function isExpired(session: CheckoutSession) {
-    return new Date(session.expires_at) < new Date()
-  }
-
   async function markAsAbandoned(sessionId: string) {
     const confirmed = confirm(
-      'Mark this session as abandoned? This will close the customer session.'
+      'Mark this expired unpaid session as abandoned? Paid sessions cannot be abandoned.'
     )
 
     if (!confirmed) return
 
-    const { error } = await supabase
+    const nowIso = new Date().toISOString()
+
+    const { data, error } = await supabase
       .from('checkout_sessions')
       .update({
         status: 'abandoned',
       })
       .eq('id', sessionId)
-      .eq('status', 'active')
+      .in('status', ['active', 'expired'])
+      .is('paid_at', null)
+      .lt('expires_at', nowIso)
+      .select('id')
 
     if (error) {
       setMessage(error.message)
+      return
+    }
+
+    if (!data || data.length === 0) {
+      setMessage(
+        'No session was changed. Only expired unpaid sessions can be abandoned. Paid sessions are protected.'
+      )
       return
     }
 
     setMessage('Session marked as abandoned.')
-    await loadSessions()
+    await refreshPage()
   }
 
-  async function expireOldSessions() {
+  async function markExpiredSessionsAsAbandoned() {
     const confirmed = confirm(
-      'Mark all expired active sessions as expired?'
+      'Mark all expired unpaid sessions as abandoned? Paid sessions will not be changed.'
     )
 
     if (!confirmed) return
 
-    const { error } = await supabase
+    const nowIso = new Date().toISOString()
+
+    const { data, error } = await supabase
       .from('checkout_sessions')
       .update({
-        status: 'expired',
+        status: 'abandoned',
       })
-      .eq('status', 'active')
-      .lt('expires_at', new Date().toISOString())
+      .in('status', ['active', 'expired'])
+      .is('paid_at', null)
+      .lt('expires_at', nowIso)
+      .select('id')
 
     if (error) {
       setMessage(error.message)
       return
     }
 
-    setMessage('Expired sessions updated.')
-    await loadSessions()
+    const updatedCount = data?.length || 0
+
+    if (updatedCount === 0) {
+      setMessage('No expired unpaid sessions were found. Paid sessions are protected.')
+    } else {
+      setMessage(`${updatedCount} expired unpaid session(s) marked as abandoned.`)
+    }
+
+    await refreshPage()
   }
 
-  const activeCount = sessions.filter((s) => s.status === 'active').length
-  const paidCount = sessions.filter((s) => s.status === 'paid').length
-  const expiredCount = sessions.filter((s) => s.status === 'expired').length
-  const abandonedCount = sessions.filter((s) => s.status === 'abandoned').length
+  const activeCount = statsSessions.filter(
+    (s) => s.status === 'active' && !isExpired(s)
+  ).length
+  const paidCount = statsSessions.filter((s) => s.status === 'paid').length
+  const expiredCount = statsSessions.filter((s) => canBeAbandoned(s)).length
+  const abandonedCount = statsSessions.filter(
+    (s) => s.status === 'abandoned'
+  ).length
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -197,7 +292,7 @@ export default function AdminSessionsPage() {
 
           <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
             <p className="text-sm font-semibold text-gray-500">
-              Expired
+              Expired Unpaid
             </p>
             <h2 className="mt-2 text-3xl font-black text-orange-700">
               {expiredCount}
@@ -215,7 +310,7 @@ export default function AdminSessionsPage() {
         </div>
 
         <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-          <div className="grid gap-4 md:grid-cols-4 md:items-end">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 lg:items-end">
             <div>
               <label className="mb-2 block text-sm font-bold text-gray-700">
                 Filter by Status
@@ -223,20 +318,20 @@ export default function AdminSessionsPage() {
 
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 className="w-full rounded-2xl border border-gray-300 bg-gray-50 p-4 outline-none focus:border-gray-950 focus:bg-white"
               >
                 <option value="all">All Sessions</option>
                 <option value="active">Active</option>
                 <option value="paid">Paid</option>
-                <option value="expired">Expired</option>
+                <option value="expired">Expired Unpaid</option>
                 <option value="abandoned">Abandoned</option>
               </select>
             </div>
 
             <button
               type="button"
-              onClick={loadSessions}
+              onClick={refreshPage}
               disabled={loading}
               className="rounded-2xl bg-gray-950 p-4 font-bold text-white hover:bg-gray-800 disabled:bg-gray-500"
             >
@@ -245,10 +340,18 @@ export default function AdminSessionsPage() {
 
             <button
               type="button"
-              onClick={expireOldSessions}
+              onClick={() => setStatusFilter('expired')}
               className="rounded-2xl bg-orange-600 p-4 font-bold text-white hover:bg-orange-700"
             >
-              Expire Old Sessions
+              Show Expired
+            </button>
+
+            <button
+              type="button"
+              onClick={markExpiredSessionsAsAbandoned}
+              className="rounded-2xl bg-red-600 p-4 font-bold text-white hover:bg-red-700"
+            >
+              Mark Expired Abandoned
             </button>
 
             <a
@@ -258,6 +361,11 @@ export default function AdminSessionsPage() {
               Back to Admin
             </a>
           </div>
+
+          <p className="mt-4 text-sm font-semibold text-gray-600">
+            Expired Unpaid means the checkout time has passed and the customer has not paid.
+            Paid sessions are never included in abandoned updates.
+          </p>
 
           {message && (
             <div className="mt-4 rounded-2xl bg-blue-100 p-4 font-semibold text-blue-800">
@@ -295,8 +403,7 @@ export default function AdminSessionsPage() {
               {sessions.map((session) => {
                 const total = getSessionTotal(session)
                 const itemCount = getItemCount(session)
-                const expiredButStillActive =
-                  session.status === 'active' && isExpired(session)
+                const displayStatus = getDisplayStatus(session)
 
                 return (
                   <div
@@ -311,21 +418,11 @@ export default function AdminSessionsPage() {
                           </h3>
 
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold ${
-                              session.status === 'active'
-                                ? expiredButStillActive
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : 'bg-green-100 text-green-800'
-                                : session.status === 'paid'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : session.status === 'expired'
-                                    ? 'bg-orange-100 text-orange-800'
-                                    : 'bg-red-100 text-red-800'
-                            }`}
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusBadgeClass(
+                              session
+                            )}`}
                           >
-                            {expiredButStillActive
-                              ? 'EXPIRED TIME'
-                              : session.status.toUpperCase()}
+                            {displayStatus}
                           </span>
                         </div>
 
@@ -387,7 +484,7 @@ export default function AdminSessionsPage() {
                         View Cart
                       </button>
 
-                      {session.status === 'active' && (
+                      {canBeAbandoned(session) && (
                         <button
                           type="button"
                           onClick={() => markAsAbandoned(session.id)}
@@ -419,11 +516,11 @@ export default function AdminSessionsPage() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-gray-900">
-                  {selectedSession.customer_name}'s Cart
+                  {selectedSession.customer_name}&apos;s Cart
                 </h2>
 
                 <p className="text-sm text-gray-500">
-                  Session status: {selectedSession.status}
+                  Session status: {getDisplayStatus(selectedSession)}
                 </p>
               </div>
 
