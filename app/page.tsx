@@ -88,11 +88,6 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="mt-10 rounded-3xl bg-gray-950 p-6 text-center text-white shadow-lg">
-          <p className="text-sm text-gray-300">
-
-          </p>
-        </div>
       </section>
     </main>
   );
