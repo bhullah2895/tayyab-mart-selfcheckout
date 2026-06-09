@@ -34,6 +34,18 @@ export default function LoginPage() {
     setLoggedInName(null)
   }
 
+  function BackToMainButton() {
+    return (
+      <button
+        type="button"
+        onClick={() => router.push('/')}
+        className="absolute left-5 top-5 rounded-2xl bg-white px-5 py-3 font-bold text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-100"
+      >
+        ← Back to Main
+      </button>
+    )
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
 
@@ -113,50 +125,50 @@ export default function LoginPage() {
 
   async function handleForgotPassword() {
     if (!email.trim()) {
-        showMessage('Enter your email first, then click Forgot Password.')
-        return
+      showMessage('Enter your email first, then click Forgot Password.')
+      return
     }
 
     setResetLoading(true)
     setMessage('')
 
     try {
-        const appUrl =
+      const appUrl =
         process.env.NEXT_PUBLIC_APP_URL || window.location.origin
 
-        const redirectUrl = `${appUrl}/reset-password`
+      const redirectUrl = `${appUrl}/reset-password`
 
-        console.log('Reset redirect URL:', redirectUrl)
+      console.log('Reset redirect URL:', redirectUrl)
 
-        const { error } = await supabase.auth.resetPasswordForEmail(
+      const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-            redirectTo: redirectUrl,
+          redirectTo: redirectUrl,
         }
-        )
+      )
 
-        if (error) {
+      if (error) {
         showMessage(error.message)
         setResetLoading(false)
         return
-        }
+      }
 
-        showMessage(
+      showMessage(
         'Password reset email sent. Please check your inbox.',
         'success'
-        )
+      )
 
-        setResetLoading(false)
+      setResetLoading(false)
     } catch (error) {
-        console.error('Forgot password failed:', error)
+      console.error('Forgot password failed:', error)
 
-        showMessage(
+      showMessage(
         'Could not contact Supabase Auth. Check Supabase URL, anon key, internet, and Auth settings.'
-        )
+      )
 
-        setResetLoading(false)
+      setResetLoading(false)
     }
-    }
+  }
 
   async function logout() {
     await supabase.auth.signOut()
@@ -170,7 +182,9 @@ export default function LoginPage() {
 
   if (loggedInRole === 'manager' || loggedInRole === 'admin') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+      <main className="relative flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <BackToMainButton />
+
         <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl ring-1 ring-gray-200">
           <div className="text-center">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-500">
@@ -217,7 +231,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-slate-100 p-6">
+      <BackToMainButton />
+
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl ring-1 ring-gray-200">
         <div className="text-center">
           <p className="text-sm font-bold uppercase tracking-wide text-gray-500">
@@ -321,12 +337,14 @@ export default function LoginPage() {
               </button>
 
               <button
-            type="button"
-            onClick={() => router.push('/forgot-password')}
-            className="w-full rounded-2xl bg-white p-4 font-bold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-50"
-          >
-            Forgot Password?
-               </button>
+                type="button"
+                onClick={() => router.push('/forgot-password')}
+                disabled={resetLoading}
+                className="w-full rounded-2xl bg-white p-4 font-bold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                Forgot Password?
+              </button>
+
               <button
                 type="button"
                 onClick={() => resetForm(null)}
