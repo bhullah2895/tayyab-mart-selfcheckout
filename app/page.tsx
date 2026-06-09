@@ -30,9 +30,7 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-gray-100">
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-5 py-10">
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-green-700 text-4xl shadow-lg">
-            🛍️
-          </div>
+
 
           <p className="text-sm font-bold uppercase tracking-[0.25em] text-green-700">
             Welcome to
